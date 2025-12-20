@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Registro de Usuario - Gestión Académica</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    
+    <meta name="google-signin-client_id" content="74783531981-7vjpiqvvr7vkh3qnnivpubnrmutnfvsf.apps.googleusercontent.com">
+    
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Playfair+Display:wght@700&display=swap" rel="stylesheet">
+    
+    <script src="js/registro.js" defer></script>
+
+    <style>
+        /* Estilos visuales del fondo */
+        .bg-campus {
+            background-image: url('https://images.unsplash.com/photo-1541339907198-e08756dedf3f?q=80&w=2070&auto=format&fit=crop'); 
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+        }
+        
+        .bg-overlay {
+            background: linear-gradient(135deg, rgba(30, 58, 138, 0.9), rgba(15, 23, 42, 0.85));
+        }
+
+        .input-academic {
+            transition: all 0.3s ease;
+            border-left: 4px solid transparent;
+        }
+        .input-academic:focus {
+            border-left-color: #c2a45a;
+            background-color: #f8fafc;
+        }
+
+        /* Modal Overlay */
+        .modal-overlay {
+            position: fixed; top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: rgba(0,0,0,0.6);
+            backdrop-filter: blur(4px);
+            display: flex; justify-content: center; align-items: center;
+            z-index: 1000;
+        }
+
+        /* Animación del Check (Simulación de GIF) */
+        .check-anim-circle {
+            stroke-dasharray: 166;
+            stroke-dashoffset: 166;
+            stroke-width: 2;
+            stroke-miterlimit: 10;
+            stroke: #1e3a8a;
+            fill: none;
+            animation: stroke 0.6s cubic-bezier(0.65, 0, 0.45, 1) forwards;
+        }
+        .check-anim-path {
+            transform-origin: 50% 50%;
+            stroke-dasharray: 48;
+            stroke-dashoffset: 48;
+            stroke: #1e3a8a;
+            stroke-width: 3;
+            fill: none;
+            animation: stroke 0.3s cubic-bezier(0.65, 0, 0.45, 1) 0.6s forwards;
+        }
+        @keyframes stroke {
+            100% { stroke-dashoffset: 0; }
+        }
+        
+        /* Efecto de entrada del modal */
+        .modal-enter {
+            animation: modalPop 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+        }
+        @keyframes modalPop {
+            0% { opacity: 0; transform: scale(0.8); }
+            100% { opacity: 1; transform: scale(1); }
+        }
+    </style>
+</head>
+
+<body class="bg-campus min-h-screen flex items-center justify-center relative px-4">
+    
+    <div class="absolute inset-0 bg-overlay"></div>
+
+    <div class="relative z-10 w-full max-w-md bg-white shadow-2xl rounded-2xl overflow-hidden animate-[fadeIn_0.8s_ease-out]">
+        
+        <div class="w-full p-8 md:p-10 flex flex-col justify-center">
+            
+            <div class="mb-8 text-center">
+                <span class="inline-block px-3 py-1 mb-4 text-xs font-semibold tracking-wider text-school-base uppercase bg-blue-50 rounded-full border border-blue-100">
+                    Nuevo Ingreso
+                </span>
+                <h2 class="text-3xl font-bold text-gray-800 mb-2 font-serif">Crear Cuenta</h2>
+                <p class="text-gray-500 text-sm">Regístrese para acceder al sistema de gestión</p>
+            </div>
+
+            <form onsubmit="registrarUsuario(event)" class="space-y-6">
+                <div>
+                    <label for="login" class="block text-sm font-medium text-gray-700 mb-1">Definir Usuario</label>
+                    <div class="relative">
+                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                            <svg class="h-5 w-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                            </svg>
+                        </div>
+                        <input type="text" id="login" required maxlength="20" placeholder="Nombre de usuario deseado" 
+                               class="input-academic pl-10 block w-full rounded-md border-gray-300 bg-gray-50 border focus:ring-0 focus:outline-none sm:text-sm p-3">
+                    </div>
+                </div>
+
+                <div>
+                    <label for="password" class="block text-sm font-medium text-gray-700 mb-1">Definir Contraseña</label>
+                    <div class="relative">
+                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                            <svg class="h-5 w-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                            </svg>
+                        </div>
+                        <input type="password" id="password" required maxlength="20" placeholder="••••••••" 
+                               class="input-academic pl-10 block w-full rounded-md border-gray-300 bg-gray-50 border focus:ring-0 focus:outline-none sm:text-sm p-3">
+                    </div>
+                </div>
+
+                <button type="submit" class="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-semibold text-white bg-school-base hover:bg-school-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-school-base transition-all transform hover:translate-y-[-1px]">
+                    REGISTRAR CUENTA
+                </button>
+            </form>
+
+            <div class="mt-6 text-center text-xs text-gray-500">
+                ¿Ya tiene una cuenta? 
+                <a href="index.html" class="text-school-base font-bold hover:text-school-accent transition-colors">
+                    Inicie sesión aquí
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <div id="customAlert" class="modal-overlay" style="display:none;">
+        <div id="modalContent" class="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden transform relative modal-enter">
+            <div class="h-2 bg-[#c2a45a] w-full"></div>
+
+            <div class="p-8 text-center">
+                <div class="mx-auto flex items-center justify-center h-20 w-20 rounded-full bg-blue-50 mb-6 relative">
+                    <svg id="checkSvg" class="w-12 h-12" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 52 52">
+                        <circle class="check-anim-circle" cx="26" cy="26" r="25" fill="none"/>
+                        <path class="check-anim-path" fill="none" d="M14.1 27.2l7.1 7.2 16.7-16.8"/>
+                    </svg>
+                </div>
+
+                <p id="alertMessage" class="text-gray-900 mb-8 text-2xl font-bold font-serif">
+                    </p>
+
+                <button id="alertOkButton" class="w-full py-3 px-4 bg-school-base hover:bg-school-dark text-white font-bold rounded-lg shadow-md transition-all transform active:scale-95">
+                    OK
+                </button>
+            </div>
+        </div>
+    </div>
+
+</body>
+</html>
