@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Matrícula por Pasos - Gestión Académica</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.2.0/crypto-js.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@700&display=swap" rel="stylesheet">
+
+    <script src="js/matricula.js" defer></script>
+
+    <style>
+        .bg-campus { background-image: url('https://images.unsplash.com/photo-1541339907198-e08756dedf3f?q=80&w=2070&auto=format&fit=crop'); background-size: cover; background-position: center; background-attachment: fixed; }
+        .bg-overlay { background: linear-gradient(135deg, rgba(30, 58, 138, 0.95), rgba(15, 23, 42, 0.9)); }
+        .input-academic { transition: all 0.3s ease; border: 1px solid #e2e8f0; }
+        .input-academic:focus { border-color: #c2a45a; ring: 2px solid #c2a45a; background-color: #fff; outline: none; }
+        .input-academic[readonly] { background-color: #f1f5f9; color: #475569; cursor: not-allowed; }
+        .step-content { animation: fadeIn 0.4s ease-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); backdrop-filter: blur(4px); display: flex; justify-content: center; align-items: center; z-index: 2000; }
+        
+        /* Animaciones SVG */
+        .check-anim-circle { stroke-dasharray: 166; stroke-dashoffset: 166; stroke-width: 2; stroke-miterlimit: 10; stroke: #1e3a8a; fill: none; animation: stroke 0.6s cubic-bezier(0.65, 0, 0.45, 1) forwards; }
+        .check-anim-path { transform-origin: 50% 50%; stroke-dasharray: 48; stroke-dashoffset: 48; stroke: #1e3a8a; stroke-width: 3; fill: none; animation: stroke 0.3s cubic-bezier(0.65, 0, 0.45, 1) 0.6s forwards; }
+        
+        .warn-anim-circle { stroke-dasharray: 166; stroke-dashoffset: 166; stroke-width: 2; stroke-miterlimit: 10; stroke: #eab308; fill: none; animation: stroke 0.6s cubic-bezier(0.65, 0, 0.45, 1) forwards; }
+        .warn-anim-path { transform-origin: 50% 50%; stroke-dasharray: 48; stroke-dashoffset: 48; stroke: #eab308; stroke-width: 3; fill: none; animation: stroke 0.3s cubic-bezier(0.65, 0, 0.45, 1) 0.6s forwards; }
+
+        @keyframes stroke { 100% { stroke-dashoffset: 0; } }
+        .modal-enter { animation: modalPop 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
+        @keyframes modalPop { 0% { opacity: 0; transform: scale(0.8); } 100% { opacity: 1; transform: scale(1); } }
+    </style>
+</head>
+<body class="bg-campus min-h-screen font-sans">
+    <div class="fixed inset-0 bg-overlay z-0"></div>
+
+    <div class="relative z-10 flex flex-col min-h-screen">
+        <header class="bg-white/10 backdrop-blur-md border-b border-white/20 shadow-lg">
+            <div class="container mx-auto px-6 py-4 flex justify-between items-center">
+                
+                <div class="flex items-center gap-3">
+                    <button onclick="irAInicio()" class="bg-white/20 hover:bg-white/30 text-white px-4 py-2 rounded-full text-sm font-medium transition-all">
+                     <span>← Volver</span>
+                    </button>
+                    <div class="h-8 w-px bg-white/20 mx-6"></div>
+                    <div class="bg-school-accent p-2 rounded-lg"><svg class="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 14l9-5-9-5-9 5 9 5z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 14l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14z" /></svg></div>
+                    <span class="text-xl font-serif font-bold text-white tracking-wide">PROCESO DE MATRÍCULA</span>
+                </div>
+                <div class="flex items-center gap-4">
+                    <span class="text-blue-100 text-sm hidden md:inline">Secretario(a): <strong id="adminName" class="text-school-accent">...</strong></span>
+                    
+                </div>
+            </div>
+        </header>
+
+        <main class="flex-1 container mx-auto px-4 py-8 flex justify-center items-start pt-16">
+            <div class="w-full max-w-4xl">
+                <div class="mb-8 mx-auto max-w-2xl">
+                    <div class="flex items-center justify-between relative">
+                        <div class="absolute left-0 top-1/2 transform -translate-y-1/2 w-full h-1 bg-gray-300 -z-10"></div>
+                        <div id="line-2" class="absolute left-0 top-1/2 transform -translate-y-1/2 w-1/2 h-1 bg-gray-300 -z-10 transition-colors duration-500"></div>
+                        <div id="line-3" class="absolute left-1/2 top-1/2 transform -translate-y-1/2 w-1/2 h-1 bg-gray-300 -z-10 transition-colors duration-500"></div>
+
+                        <div class="flex flex-col items-center bg-transparent"><div id="circle-1" class="w-10 h-10 rounded-full flex items-center justify-center font-bold bg-gray-300 text-gray-700">1</div><span id="text-1" class="text-xs mt-2 font-bold text-gray-300 bg-white/10 backdrop-blur-sm px-2 rounded">Alumno</span></div>
+                        <div class="flex flex-col items-center bg-transparent"><div id="circle-2" class="w-10 h-10 rounded-full flex items-center justify-center font-bold bg-gray-300 text-gray-700">2</div><span id="text-2" class="text-xs mt-2 text-gray-400 bg-white/10 backdrop-blur-sm px-2 rounded">Académico</span></div>
+                        <div class="flex flex-col items-center bg-transparent"><div id="circle-3" class="w-10 h-10 rounded-full flex items-center justify-center font-bold bg-gray-300 text-gray-700">3</div><span id="text-3" class="text-xs mt-2 text-gray-400 bg-white/10 backdrop-blur-sm px-2 rounded">Confirmar</span></div>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-2xl shadow-2xl overflow-hidden min-h-[400px] flex flex-col">
+                    <div class="h-1 bg-school-accent w-full"></div>
+                    <div class="p-8 md:p-10 flex-1">
+                        
+                        <div id="step-1" class="step-content">
+                            <h2 class="text-2xl font-serif font-bold text-school-base mb-6 border-b pb-2">1. Identificación del Estudiante</h2>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                                <div class="col-span-2">
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Buscar por DNI</label>
+                                    <div class="flex gap-2">
+                                        <input type="text" id="dni" class="input-academic flex-1 rounded-lg p-3" placeholder="Ingrese número de documento" maxlength="8" oninput="validarInputDNI(this)">
+                                        <button type="button" id="btnBuscar" onclick="buscarAlumno()" class="bg-school-base text-white px-6 rounded-lg hover:bg-school-dark transition-colors font-medium flex items-center justify-center min-w-[120px]">🔍 Buscar</button>
+                                    </div>
+                                    <p class="text-xs text-gray-500 mt-1">Ingrese el DNI (8 dígitos) y presione buscar.</p>
+                                </div>
+                                <div class="col-span-1">
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Nombres</label>
+                                    <input type="text" id="nombre" class="input-academic w-full rounded-lg p-3 bg-gray-50" readonly>
+                                </div>
+                                <div class="col-span-1">
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Apellidos</label>
+                                    <input type="text" id="apellido" class="input-academic w-full rounded-lg p-3 bg-gray-50" readonly>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div id="step-2" class="step-content hidden">
+                            <h2 class="text-2xl font-serif font-bold text-school-base mb-6 border-b pb-2">2. Asignación Académica</h2>
+                            <div class="space-y-6 max-w-lg mx-auto">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Nivel Educativo</label>
+                                    <select id="nivel" class="input-academic w-full rounded-lg p-3" onchange="actualizarGrados()">
+                                        <option value="">Seleccione Nivel...</option>
+                                        <option value="primaria">Primaria</option>
+                                        <option value="secundaria">Secundaria</option>
+                                    </select>
+                                </div>
+                                <div class="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">Grado</label>
+                                        <select id="grado" class="input-academic w-full rounded-lg p-3"><option value="">Seleccione nivel...</option></select>
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">Año Escolar</label>
+                                        <select id="anio" class="input-academic w-full rounded-lg p-3">
+                                            <option value="2025">2025</option><option value="2026">2026</option><option value="2027">2027</option>
+                                            <option value="2028">2028</option><option value="2029">2029</option><option value="2030">2030</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Observación</label>
+                                    <textarea id="observacion" rows="3" maxlength="100" class="input-academic w-full rounded-lg p-3 text-sm resize-none" placeholder="Opcional..." oninput="actualizarContador()"></textarea>
+                                    <div class="text-right text-xs text-gray-400 mt-1"><span id="contador">0 / 100</span></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div id="step-3" class="step-content hidden">
+                            <h2 class="text-2xl font-serif font-bold text-school-base mb-6 border-b pb-2">3. Confirmación de Matrícula</h2>
+                            <div class="bg-gray-50 rounded-xl p-6 border border-gray-200 mb-8 relative overflow-hidden">
+                                <div class="absolute top-0 right-0 w-24 h-24 bg-school-accent opacity-10 rounded-bl-full"></div>
+                                <h3 class="text-lg font-bold text-school-base mb-4 flex items-center"><span class="w-2 h-2 bg-school-accent rounded-full mr-2"></span> Resumen del Estudiante</h3>
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                                    <div><p class="text-gray-500">Estudiante</p><p class="font-semibold text-gray-800 text-lg" id="resumen-alumno">...</p></div>
+                                    <div><p class="text-gray-500">DNI</p><p class="font-semibold text-gray-800" id="resumen-dni">...</p></div>
+                                    <div><p class="text-gray-500">Nivel Asignado</p><p class="font-semibold text-gray-800" id="resumen-nivel">...</p></div>
+                                    <div><p class="text-gray-500">Grado y Año</p><p class="font-semibold text-school-accent" id="resumen-grado">...</p></div>
+                                    <div class="md:col-span-2"><p class="text-gray-500">Observaciones</p><p class="font-medium text-gray-700 italic" id="resumen-obs">...</p></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-gray-50 px-8 py-4 border-t flex justify-between items-center">
+                        <button onclick="prevStep()" id="btnPrev" class="text-gray-500 hover:text-gray-700 font-medium px-4 py-2 rounded-lg hover:bg-gray-200 transition-colors">← Anterior</button>
+                        <button onclick="nextStep()" id="btnNext" class="bg-school-base text-white px-8 py-2.5 rounded-lg hover:bg-school-dark shadow-lg font-medium">Siguiente</button>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <div id="customAlert" class="modal-overlay" style="display:none;">
+        <div id="modalContent" class="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden transform relative modal-enter" onclick="event.stopPropagation()">
+            <div class="h-2 bg-school-accent w-full"></div>
+            <div class="p-8 text-center" id="alertContent"></div>
+        </div>
+    </div>
+</body>
+</html>
