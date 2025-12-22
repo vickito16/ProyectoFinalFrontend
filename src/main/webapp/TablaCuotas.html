@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Detalle de Cuotas</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Courier+Prime:wght@400;700&display=swap" rel="stylesheet">
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <script src="js/TablaCuotas.js" defer></script>
+
+    <style>
+        .bg-campus { background-image: url('https://images.unsplash.com/photo-1541339907198-e08756dedf3f?q=80&w=2070&auto=format&fit=crop'); background-size: cover; background-position: center; background-attachment: fixed; }
+        .bg-overlay { background: linear-gradient(135deg, rgba(30, 58, 138, 0.95), rgba(15, 23, 42, 0.9)); }
+        
+        .info-box { background-color: #f8fafc; border: 2px solid #e2e8f0; border-radius: 0.5rem; padding: 0.5rem 1rem; font-weight: 600; color: #1e3a8a; width: 100%; }
+        .info-label { font-size: 0.75rem; color: #64748b; font-weight: 700; text-transform: uppercase; margin-bottom: 0.25rem; display: block; }
+        
+        .table-input { width: 100%; background: transparent; border: none; outline: none; padding: 4px; border-bottom: 1px solid transparent; transition: border 0.3s; }
+        .table-input:focus { border-bottom: 1px solid #c2a45a; }
+        
+        .input-disabled { background-color: #f0fdf4; color: #166534; font-weight: 600; cursor: not-allowed; }
+        select:disabled { background-color: #f0fdf4; color: #166534; border-color: #bbf7d0; opacity: 1; }
+        
+        .loader { border: 3px solid #f3f3f3; border-top: 3px solid #c2a45a; border-radius: 50%; width: 20px; height: 20px; animation: spin 1s linear infinite; display: inline-block; margin-right: 8px; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        .gif-modal { display: none; position: fixed; z-index: 9999; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.6); backdrop-filter: blur(5px); justify-content: center; align-items: center; }
+        .gif-modal-content { background-color: #fff; border-radius: 1rem; padding: 2.5rem; width: 90%; max-width: 420px; text-align: center; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); animation: modalPop 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
+        
+        .receipt-modal-content { 
+            background-color: #fff; 
+            border-radius: 0.5rem; 
+            padding: 0; 
+            width: 1122px; 
+            height: 794px; 
+            max-width: 98vw;
+            max-height: 95vh;
+            text-align: left; 
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5); 
+            animation: modalPop 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; 
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .receipt-paper {
+            background-color: #fff;
+            padding: 3rem;
+            position: relative;
+            height: 100%;
+            width: 100%;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        @keyframes modalPop {
+            0% { transform: scale(0.8); opacity: 0; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+    </style>
+</head>
+<body class="bg-campus min-h-screen font-sans">
+
+    <div class="fixed inset-0 bg-overlay z-0"></div>
+
+    <div class="relative z-10 flex flex-col min-h-screen">
+        <header class="bg-school-base/90 backdrop-blur-md border-b border-white/10 shadow-lg sticky top-0 z-20">
+            <div class="container mx-auto px-6 py-4 flex justify-between items-center">
+                <div class="flex items-center gap-4">
+                    <div class="bg-school-accent p-2 rounded-lg text-white shadow-md">
+                        <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>
+                    </div>
+                    <span class="text-xl font-serif font-bold text-white tracking-wide uppercase">Detalle de Cuotas</span>
+                </div>
+                <div><span class="text-blue-100 text-sm font-medium">Gestión Académica</span></div>
+            </div>
+        </header>
+
+        <main class="flex-1 container mx-auto px-4 py-8 flex justify-center items-start pt-6">
+            <div class="w-full max-w-5xl bg-white rounded-3xl shadow-2xl overflow-hidden border-4 border-school-light">
+                <div class="p-8 bg-white border-b-4 border-school-accent/30">
+                    <div class="flex flex-col md:flex-row gap-6 justify-between items-start">
+                        <div class="flex-1 w-full border-2 border-school-base rounded-2xl p-6 relative">
+                            <span class="absolute -top-3 left-4 bg-white px-2 text-school-base font-bold text-sm">Información del Estudiante</span>
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                                <div><label class="info-label">DNI</label><input type="text" id="txtDni" class="info-box" readonly></div>
+                                <div><label class="info-label">Teléfono Apoderado</label><input type="text" id="txtTelefono" class="info-box" readonly></div>
+                                <div><label class="info-label">Año</label><input type="text" id="txtAnio" class="info-box text-center" readonly></div>
+                            </div>
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <div><label class="info-label">Nombres</label><input type="text" id="txtNombres" class="info-box" readonly></div>
+                                <div><label class="info-label">Apellidos</label><input type="text" id="txtApellidos" class="info-box" readonly></div>
+                                <div><label class="info-label">Grado</label><input type="text" id="txtGrado" class="info-box text-center bg-school-light text-school-base" readonly></div>
+                            </div>
+                        </div>
+                        <div class="flex flex-row md:flex-col gap-3 w-full md:w-auto justify-center">
+                            <button id="btn-guardar" onclick="guardar()" class="bg-school-base text-white px-8 py-3 rounded-xl font-bold hover:bg-school-dark transition shadow-lg flex items-center justify-center gap-2 transform hover:scale-105 duration-200 disabled:opacity-50 disabled:cursor-not-allowed">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"></path></svg>Guardar
+                            </button>
+                            <button onclick="cancelar()" class="bg-white border-2 border-red-500 text-red-500 px-8 py-3 rounded-xl font-bold hover:bg-red-50 transition shadow-lg flex items-center justify-center gap-2 transform hover:scale-105 duration-200">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>Cancelar
+                            </button>
+                            <button onclick="anularPago()" class="bg-gray-700 text-white px-8 py-3 rounded-xl font-bold hover:bg-gray-800 transition shadow-lg flex items-center justify-center gap-2 transform hover:scale-105 duration-200">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"></path></svg>Anular Pago
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div class="p-8 bg-gray-50 min-h-[500px]">
+                    <div class="bg-white rounded-xl shadow-sm border-2 border-school-base overflow-hidden">
+                        <table class="w-full text-left border-collapse">
+                            <thead>
+                                <tr class="bg-school-base text-white uppercase text-sm leading-normal">
+                                    <th class="py-3 px-4 text-center w-16 border-r border-school-light/20">Nº</th>
+                                    <th class="py-3 px-4 border-r border-school-light/20">Concepto</th>
+                                    <th class="py-3 px-4 border-r border-school-light/20 w-40">Monto</th>
+                                    <th class="py-3 px-4 w-40 text-center">Estado</th>
+                                </tr>
+                            </thead>
+                            <tbody id="cuotas-tbody" class="text-gray-700 text-sm font-medium"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <div id="modalGif" class="gif-modal">
+        <div class="gif-modal-content">
+            <div id="modalIconContainer"></div>
+            <h3 id="modalGifTitle" class="text-2xl font-serif font-bold mb-2"></h3>
+            <p id="modalGifMessage" class="text-gray-600 mb-6 text-sm"></p>
+            <div id="modalButtons" class="w-full"></div>
+        </div>
+    </div>
+
+    <div id="modalRecibo" class="gif-modal">
+        <div class="receipt-modal-content">
+            <div id="printableReceipt" class="receipt-paper overflow-y-auto">
+                <div class="grid grid-cols-2 gap-8 h-full">
+                    
+                    <div class="border-r border-dashed border-gray-300 pr-8 flex flex-col h-full">
+                        <div class="text-center mb-6">
+                            <div class="flex justify-center items-center gap-2 mb-2">
+                                <div class="bg-school-base p-2 rounded text-white">
+                                    <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path></svg>
+                                </div>
+                                <h2 class="text-2xl font-bold text-school-base font-serif">COLEGIO DEMO</h2>
+                            </div>
+                            <p class="text-xs text-gray-500 font-mono">RUC: 20123456789</p>
+                            <p class="text-xs text-gray-500 font-mono">Av. Universitaria 123, Lima</p>
+                        </div>
+
+                        <div class="mb-6 text-sm border-b border-gray-100 pb-4">
+                            <div class="flex justify-between text-gray-600">
+                                <span>Fecha Emisión:</span>
+                                <span id="reciboFecha" class="font-mono font-bold"></span>
+                            </div>
+                        </div>
+
+                        <div class="bg-gray-50 p-4 rounded-lg border border-gray-100 flex-1">
+                            <p class="text-xs text-gray-500 uppercase font-bold mb-2">Datos del Estudiante</p>
+                            <p id="reciboAlumno" class="font-bold text-school-base text-lg mb-2 leading-tight"></p>
+                            <div class="text-sm text-gray-600 space-y-1">
+                                <p>DNI: <span id="reciboDni" class="font-mono text-gray-900 font-semibold"></span></p>
+                                <p>Grado: <span id="reciboGradoInfo" class="text-gray-900 font-medium"></span></p>
+                                <p>Año Académico: <span id="reciboAnioInfo" class="text-gray-900 font-medium"></span></p>
+                            </div>
+                        </div>
+                        
+                        <div class="text-center mt-auto pt-4">
+                             <p class="text-[10px] text-gray-400">Gracias por su confianza</p>
+                        </div>
+                    </div>
+
+                    <div class="flex flex-col h-full justify-between">
+                        <div>
+                            <h3 class="text-sm font-bold text-gray-700 uppercase mb-4 border-b-2 border-school-base pb-2 w-full">Detalle de Transacción</h3>
+                            
+                            <div class="flex-1 overflow-hidden">
+                                <div id="reciboItems" class="space-y-3">
+                                    </div>
+                            </div>
+                        </div>
+
+                        <div class="mt-auto pt-4 border-t-2 border-gray-800">
+                            <div class="flex justify-between items-end">
+                                <span class="font-bold text-xl">TOTAL</span>
+                                <span id="reciboTotal" class="font-bold text-3xl text-school-base font-mono"></span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-gray-100 p-4 border-t border-gray-200 flex gap-3 flex-shrink-0">
+                <button id="btnDescargarPdf" onclick="descargarPDF()" class="flex-1 bg-white border border-red-500 text-red-600 px-4 py-2 rounded-lg hover:bg-red-50 transition font-bold shadow-sm flex items-center justify-center gap-2">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>Descargar PDF
+                </button>
+                <button id="btnAceptarRecibo" onclick="cerrarReciboYRecargar()" class="flex-1 bg-school-base text-white px-4 py-2 rounded-lg opacity-50 cursor-not-allowed font-bold shadow-sm" disabled>
+                    Aceptar
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div id="modalAnular" class="gif-modal">
+        <div class="gif-modal-content w-full max-w-md">
+            <h3 class="text-2xl font-serif font-bold text-school-base mb-6">Anular Recibo de Pago</h3>
+            <div class="mb-4 text-left">
+                <label class="info-label mb-1">Escriba el recibo que desea anular</label>
+                <input type="text" id="txtReciboAnular" class="w-full border border-gray-300 rounded-lg p-3 focus:outline-none focus:border-school-accent text-center font-mono text-lg">
+            </div>
+            <div class="mb-6 text-left">
+                <label class="info-label mb-1">Código Google Authenticator (Director)</label>
+                <input type="text" id="txtCodigoAuth" class="w-full border border-gray-300 rounded-lg p-3 focus:outline-none focus:border-school-accent text-center font-mono text-lg tracking-widest" placeholder="000 000" inputmode="numeric">
+            </div>
+            <div class="flex gap-3">
+                <button onclick="cerrarModalAnular()" class="flex-1 bg-white border-2 border-gray-300 text-gray-600 px-4 py-2 rounded-xl font-bold hover:bg-gray-50 transition">Cancelar</button>
+                <button onclick="validarYConfirmarAnulacion()" class="flex-1 bg-red-600 text-white px-4 py-2 rounded-xl font-bold hover:bg-red-700 transition shadow-lg">Confirmar</button>
+            </div>
+        </div>
+    </div>
+
+</body>
+</html>
