@@ -44,67 +44,41 @@ function actualizarContador() {
     document.getElementById('contador').textContent = `${document.getElementById('observacion').value.length} / 100`;
 }
 
-// === WIZARD LOGIC (ACTUALIZADA) ===
+// === WIZARD LOGIC ===
 let currentStep = 1;
 
 function updateUI() {
-    // 1. Mostrar/Ocultar Contenedores
     document.querySelectorAll('.step-content').forEach(el => el.classList.add('hidden'));
     document.getElementById(`step-${currentStep}`).classList.remove('hidden');
     
-    // 2. Actualizar Indicadores Superiores (Círculos y Textos)
     for (let i = 1; i <= 3; i++) {
         const circle = document.getElementById(`circle-${i}`);
         const text = document.getElementById(`text-${i}`);
         
         if (i <= currentStep) {
-            // Activo (Azul Institucional)
             circle.className = "w-10 h-10 rounded-full flex items-center justify-center font-bold transition-colors duration-300 bg-school-base text-white border-2 border-school-base";
             text.className = "text-xs mt-2 font-bold text-school-base bg-white/90 backdrop-blur-sm px-2 py-0.5 rounded shadow-sm";
         } else {
-            // Inactivo (Gris oscuro para mejor contraste)
             circle.className = "w-10 h-10 rounded-full flex items-center justify-center font-bold transition-colors duration-300 bg-gray-300 text-gray-700 border-2 border-gray-300";
             text.className = "text-xs mt-2 font-medium text-gray-300 bg-white/10 backdrop-blur-sm px-2 py-0.5 rounded";
         }
     }
 
-    // 3. Actualizar Barras de Progreso
     const line2 = document.getElementById('line-2');
-    if (currentStep >= 2) {
-        line2.className = "absolute left-0 top-1/2 transform -translate-y-1/2 w-1/2 h-1 -z-10 transition-colors duration-500 bg-school-base";
-    } else {
-        line2.className = "absolute left-0 top-1/2 transform -translate-y-1/2 w-1/2 h-1 -z-10 transition-colors duration-500 bg-gray-300";
-    }
+    line2.className = currentStep >= 2 ? "absolute left-0 top-1/2 transform -translate-y-1/2 w-1/2 h-1 -z-10 transition-colors duration-500 bg-school-base" : "absolute left-0 top-1/2 transform -translate-y-1/2 w-1/2 h-1 -z-10 transition-colors duration-500 bg-gray-300";
 
     const line3 = document.getElementById('line-3');
-    if (currentStep >= 3) {
-        line3.className = "absolute left-1/2 top-1/2 transform -translate-y-1/2 w-1/2 h-1 -z-10 transition-colors duration-500 bg-school-base";
-    } else {
-        line3.className = "absolute left-1/2 top-1/2 transform -translate-y-1/2 w-1/2 h-1 -z-10 transition-colors duration-500 bg-gray-300";
-    }
+    line3.className = currentStep >= 3 ? "absolute left-1/2 top-1/2 transform -translate-y-1/2 w-1/2 h-1 -z-10 transition-colors duration-500 bg-school-base" : "absolute left-1/2 top-1/2 transform -translate-y-1/2 w-1/2 h-1 -z-10 transition-colors duration-500 bg-gray-300";
     
-    // 4. Lógica de Botones
     const btnNext = document.getElementById('btnNext');
     const btnPrev = document.getElementById('btnPrev');
 
-    // Botón Anterior: Visible si step > 1
-    if (currentStep === 1) {
-        btnPrev.style.opacity = '0';
-        btnPrev.style.pointerEvents = 'none';
-    } else {
-        btnPrev.style.opacity = '1';
-        btnPrev.style.pointerEvents = 'auto';
-    }
+    btnPrev.style.opacity = currentStep === 1 ? '0' : '1';
+    btnPrev.style.pointerEvents = currentStep === 1 ? 'none' : 'auto';
 
-    // Botón Siguiente / Confirmar
     if(currentStep === 3) {
         renderResumen(); 
-        btnNext.innerHTML = `
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5 mr-2">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            CONFIRMAR
-        `;
+        btnNext.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5 mr-2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg> CONFIRMAR`;
         btnNext.className = "bg-green-600 text-white px-8 py-2.5 rounded-lg hover:bg-green-700 transition-transform active:scale-95 shadow-lg font-bold tracking-wide flex items-center";
         btnNext.onclick = finalizarMatricula;
     } else {
@@ -131,21 +105,22 @@ function prevStep() {
 function validateCurrentStep() {
     if (currentStep === 1) {
         if (!document.getElementById('dni').value || !document.getElementById('nombre').value) {
-            showAlert("Debe buscar un alumno válido.", false); return false;
+            showAlert("Debe buscar un alumno válido."); return false;
         }
     }
     if (currentStep === 2) {
         if (!document.getElementById('nivel').value || !document.getElementById('grado').value || !document.getElementById('anio').value) {
-            showAlert("Complete los datos académicos.", false); return false;
+            showAlert("Complete los datos académicos."); return false;
         }
     }
     return true;
 }
 
 async function buscarAlumno() {
-    const dni = document.getElementById('dni').value.trim();
-    if(!dni) { showAlert("Ingrese DNI", false); return; }
-    if(dni.length !== 8) { showAlert("El DNI debe tener 8 dígitos", false); return; }
+    const dniInput = document.getElementById('dni');
+    const dni = dniInput.value.trim();
+    if(!dni) { showAlert("Ingrese DNI"); return; }
+    if(dni.length !== 8) { showAlert("El DNI debe tener 8 dígitos"); return; }
     
     const btn = document.getElementById('btnBuscar');
     const originalText = btn.innerHTML;
@@ -160,11 +135,23 @@ async function buscarAlumno() {
         if (!res.ok) throw new Error("Alumno no encontrado o error de servidor");
         
         const data = await res.json();
+        
+        // --- INICIO DE CAMBIO SOLICITADO ---
+        if (data.estado === 0) {
+            showAlert("Alumno inactivo y/o Eliminado", "Aceptar");
+            dniInput.value = "";
+            document.getElementById('nombre').value = "";
+            document.getElementById('apellido').value = "";
+            currentAlumnoId = null;
+            return; 
+        }
+        // --- FIN DE CAMBIO SOLICITADO ---
+
         currentAlumnoId = data.idAlumno; 
         document.getElementById('nombre').value = descifrarDES(data.nombreAlumno);
         document.getElementById('apellido').value = `${descifrarDES(data.apePaterAlumno)} ${descifrarDES(data.apeMaterAlumno)}`;
     } catch (e) {
-        console.error(e); showAlert(e.message, false);
+        console.error(e); showAlert(e.message);
         document.getElementById('nombre').value = "";
         document.getElementById('apellido').value = "";
     } finally {
@@ -208,24 +195,17 @@ async function finalizarMatricula() {
         const token = sessionStorage.getItem("token");
         const res = await fetch("http://localhost:8083/matriculas/registrar", {
             method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json'
-            },
+            headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
         });
 
         const data = await res.json();
-
-        if (data.resultado === 'ok') {
-            showSuccessAlert();
-        } else {
-            showWarningAlert(data.mensaje);
-        }
+        if (data.resultado === 'ok') showSuccessAlert();
+        else showWarningAlert(data.mensaje);
 
     } catch (error) {
         console.error(error);
-        showAlert("Error de conexión al procesar matrícula.", false);
+        showAlert("Error de conexión al procesar matrícula.");
     } finally {
         btn.innerHTML = originalBtn; btn.disabled = false;
     }
@@ -257,14 +237,15 @@ function showWarningAlert(mensaje) {
     modal.style.display = "flex";
 }
 
-function showAlert(msg) {
+// SE ACTUALIZÓ PARA ACEPTAR TEXTO DE BOTÓN PERSONALIZADO
+function showAlert(msg, btnText = "Cerrar") {
     const modal = document.getElementById("customAlert");
     document.getElementById("alertContent").innerHTML = `
         <div class="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-red-100 mb-4">
             <svg class="h-8 w-8 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
         </div>
         <p class="text-gray-800 mb-6 text-lg font-medium">${msg}</p>
-        <button onclick="closeAlert()" class="w-full py-2 px-4 bg-gray-800 text-white rounded-lg hover:bg-gray-900">Cerrar</button>
+        <button onclick="closeAlert()" class="w-full py-2 px-4 bg-gray-800 text-white rounded-lg hover:bg-gray-900">${btnText}</button>
     `;
     modal.style.display = "flex";
 }
@@ -273,13 +254,11 @@ function closeAlert() { document.getElementById("customAlert").style.display = "
 
 function validarInputDNI(input) {
     input.value = input.value.replace(/[^0-9]/g, '');
-    if (input.value.length > 8) {
-        input.value = input.value.slice(0, 8);
-    }
+    if (input.value.length > 8) input.value = input.value.slice(0, 8);
 }
 
 window.onload = function() {
     if (!sessionStorage.getItem("usuario")) window.location.href = "index.html";
     document.getElementById("adminName").textContent = sessionStorage.getItem("usuario");
-    updateUI(); // Inicializar UI en paso 1
+    updateUI();
 };
