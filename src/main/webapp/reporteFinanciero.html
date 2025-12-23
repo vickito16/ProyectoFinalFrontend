@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Reporte Financiero - Gestión Académica</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@700&display=swap" rel="stylesheet">
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.2.0/crypto-js.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script> 
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script> 
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script> 
+    
+    <script src="js/reporteFinanciero.js" defer></script>
+
+    <style>
+        .bg-campus { background-image: url('https://images.unsplash.com/photo-1541339907198-e08756dedf3f?q=80&w=2070&auto=format&fit=crop'); background-size: cover; background-position: center; background-attachment: fixed; }
+        .bg-overlay { background: linear-gradient(135deg, rgba(30, 58, 138, 0.95), rgba(15, 23, 42, 0.9)); }
+        
+        .card-glass { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.2); }
+        .input-academic { transition: all 0.3s ease; border: 1px solid #e2e8f0; }
+        .input-academic:focus { border-color: #c2a45a; ring: 2px solid #c2a45a; background-color: #fff; outline: none; box-shadow: 0 0 0 3px rgba(194, 164, 90, 0.2); }
+        .fade-in { animation: fadeIn 0.5s ease-out forwards; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    </style>
+</head>
+<body class="bg-campus min-h-screen font-sans text-gray-800">
+
+    <div class="fixed inset-0 bg-overlay z-0"></div>
+
+    <div class="relative z-10 flex flex-col min-h-screen">
+        
+        <header class="bg-school-base/90 backdrop-blur-md border-b border-white/10 shadow-lg sticky top-0 z-20">
+            <div class="container mx-auto px-6 py-4 flex justify-between items-center">
+                <div class="flex items-center gap-4">
+                    <button onclick="irVolver()" class="bg-white/20 hover:bg-white/30 text-white px-4 py-2 rounded-full text-sm font-medium transition-all flex items-center gap-2">
+                      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
+                      Volver
+                    </button>
+                    <div class="h-8 w-px bg-white/20 mx-2"></div>
+                    <span class="text-xl font-serif font-bold text-white tracking-wide uppercase">Finanzas Institucionales</span>
+                </div>
+                <div class="flex items-center gap-4">
+                    <span class="text-blue-100 text-sm hidden md:inline">Director(a): <strong id="directorName" class="text-school-accent">...</strong></span>
+                </div>
+            </div>
+        </header>
+
+        <main class="flex-1 container mx-auto px-4 py-8">
+            
+            <div class="flex justify-end mb-8 fade-in">
+                <div class="bg-white p-2 rounded-lg shadow-lg flex items-center gap-3">
+                    <span class="text-sm font-bold text-school-base">Filtrar Año:</span>
+                    <select id="filtroGlobalAnio" onchange="filtrarPorAnio()" class="input-academic rounded py-1 px-3 text-sm text-gray-700 font-medium bg-gray-50 border-gray-200 cursor-pointer">
+                        <option value="Todos" selected>Todos</option>
+                        <option value="2022">2022</option>
+                        <option value="2023">2023</option>
+                        <option value="2024">2024</option>
+                        <option value="2025">2025</option>
+                        <option value="2026">2026</option>
+                        <option value="2027">2027</option>
+                        <option value="2028">2028</option>
+                        <option value="2029">2029</option>
+                        <option value="2030">2030</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-12 fade-in max-w-4xl mx-auto">
+                <div class="bg-white rounded-xl shadow-lg p-6 border-l-4 border-school-base transform hover:scale-105 transition-transform duration-300">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <p class="text-xs font-bold text-gray-400 uppercase">Ingresos Totales</p>
+                            <h3 id="kpi-ingresos" class="text-3xl font-bold text-school-base mt-2">S/. 0.00</h3>
+                        </div>
+                        <div class="bg-blue-50 p-3 rounded-lg text-school-base shadow-sm">
+                            <svg class="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                        </div>
+                    </div>
+                    <span class="text-xs text-green-500 font-bold mt-4 block flex items-center gap-1">
+                        <span class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
+                        Calculado en tiempo real
+                    </span>
+                </div>
+
+                <div class="bg-white rounded-xl shadow-lg p-6 border-l-4 border-school-accent transform hover:scale-105 transition-transform duration-300">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <p class="text-xs font-bold text-gray-400 uppercase">Alumnos Matriculados</p>
+                            <h3 id="kpi-matriculados" class="text-3xl font-bold text-gray-800 mt-2">0</h3>
+                        </div>
+                        <div class="bg-yellow-50 p-3 rounded-lg text-school-accent shadow-sm">
+                            <svg class="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
+                        </div>
+                    </div>
+                    <span class="text-xs text-gray-500 mt-4 block">Alumnos Activos</span>
+                </div>
+            </div>
+
+            <div id="seccion-graficos-historicos" class="fade-in space-y-8">
+                
+                <div class="relative flex py-5 items-center">
+                    <div class="flex-grow border-t border-gray-300 opacity-30"></div>
+                    <span class="flex-shrink-0 mx-4 text-white font-serif font-bold text-lg bg-school-base/80 px-6 py-1 rounded-full backdrop-blur-sm shadow-md">Análisis Financiero</span>
+                    <div class="flex-grow border-t border-gray-300 opacity-30"></div>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-16">
+                    <div class="bg-white rounded-xl shadow-lg p-6">
+                        <h4 class="font-bold text-gray-700 mb-6 text-center border-b pb-2">Ganancia Total por Año</h4>
+                        <div class="h-48">
+                            <canvas id="chartGananciasBar"></canvas>
+                        </div>
+                    </div>
+                    <div class="bg-white rounded-xl shadow-lg p-6">
+                        <h4 class="font-bold text-gray-700 mb-6 text-center border-b pb-2">Distribución de Ganancias</h4>
+                        <div class="h-48">
+                            <canvas id="chartGananciasPie"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="relative flex py-5 items-center">
+                    <div class="flex-grow border-t border-gray-300 opacity-30"></div>
+                    <span class="flex-shrink-0 mx-4 text-white font-serif font-bold text-lg bg-school-accent/80 px-6 py-1 rounded-full backdrop-blur-sm shadow-md">Análisis Estudiantil</span>
+                    <div class="flex-grow border-t border-gray-300 opacity-30"></div>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                    <div class="bg-white rounded-xl shadow-lg p-6">
+                        <h4 class="font-bold text-gray-700 mb-6 text-center border-b pb-2">Cantidad de Alumnos por Año</h4>
+                        <div class="h-48">
+                            <canvas id="chartAlumnosBar"></canvas>
+                        </div>
+                    </div>
+                    <div class="bg-white rounded-xl shadow-lg p-6">
+                        <h4 class="font-bold text-gray-700 mb-6 text-center border-b pb-2">Distribución de Alumnado</h4>
+                        <div class="h-48">
+                            <canvas id="chartAlumnosPie"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </main>
+    </div>
+
+</body>
+</html>
