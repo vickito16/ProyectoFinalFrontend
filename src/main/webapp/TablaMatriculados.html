@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Gestión de Matriculados</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@700&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.2.0/crypto-js.min.js"></script>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
+    
+    <script src="js/TablaMatriculados.js" defer></script>
+
+    <style>
+        .bg-campus { background-image: url('https://images.unsplash.com/photo-1541339907198-e08756dedf3f?q=80&w=2070&auto=format&fit=crop'); background-size: cover; background-position: center; background-attachment: fixed; }
+        .bg-overlay { background: linear-gradient(135deg, rgba(30, 58, 138, 0.95), rgba(15, 23, 42, 0.9)); }
+        
+        .input-academic { transition: all 0.3s ease; border: 1px solid #e2e8f0; }
+        .input-academic:focus { border-color: #c2a45a; ring: 2px solid #c2a45a; background-color: #fff; outline: none; box-shadow: 0 0 0 3px rgba(194, 164, 90, 0.2); }
+        
+        /* Animación para el despliegue de cuotas */
+        .slide-down { animation: slideDown 0.3s ease-out forwards; transform-origin: top; }
+        @keyframes slideDown { 0% { opacity: 0; transform: scaleY(0); } 100% { opacity: 1; transform: scaleY(1); } }
+        
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #f1f1f1; }
+        ::-webkit-scrollbar-thumb { background: #c2a45a; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #a3863d; }
+
+        /* Estilos Menú Desplegable Flotante */
+        .dropdown-menu { 
+            display: none; 
+            position: fixed; /* Flota sobre todo */
+            background-color: white; 
+            border: 1px solid #e2e8f0; 
+            border-radius: 0.5rem; 
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05); 
+            z-index: 9999; 
+            min-width: 150px;
+            padding: 4px 0;
+        }
+        
+        /* Animación Fade In */
+        .dropdown-menu.show { 
+            display: block !important; /* Forzar visibilidad */
+            animation: fadeIn 0.15s ease-out forwards;
+        }
+        
+        @keyframes fadeIn { 
+            from { opacity: 0; transform: translateY(-8px); } 
+            to { opacity: 1; transform: translateY(0); } 
+        }
+    </style>
+</head>
+<body class="bg-campus min-h-screen font-sans">
+    
+    <div class="fixed inset-0 bg-overlay z-0"></div>
+
+    <div class="relative z-10 flex flex-col min-h-screen">
+        
+        <header class="bg-school-base/90 backdrop-blur-md border-b border-white/10 shadow-lg sticky top-0 z-20">
+            <div class="container mx-auto px-6 py-4 flex justify-between items-center">
+                <div class="flex items-center gap-4">
+                    <button onclick="irAInicio()" class="bg-white/20 hover:bg-white/30 text-white px-4 py-2 rounded-full text-sm font-medium transition-all">
+                      <span>← Volver</span>
+                    </button>
+                    <div class="h-8 w-px bg-white/20 mx-6"></div>
+                    <div class="bg-school-accent p-2 rounded-lg text-white shadow-md">
+                        <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                    </div>
+                    <span class="text-xl font-serif font-bold text-white tracking-wide uppercase">Gestión de Matriculados</span>
+                </div>
+                <div class="flex items-center gap-6">
+                    <span class="text-blue-100 text-sm hidden md:inline font-medium">
+                        Director(a): <strong id="adminName" class="text-school-accent font-bold">...</strong>
+                    </span>
+                </div>
+            </div>
+        </header>
+
+        <main class="flex-1 container mx-auto px-4 py-8 flex justify-center items-start pt-10">
+            <div class="w-full max-w-[95%]">
+                
+                <div class="bg-white rounded-2xl shadow-2xl overflow-hidden min-h-[600px] flex flex-col">
+                    <div class="h-1.5 bg-school-accent w-full"></div>
+                    
+                    <div class="p-8 md:p-8 flex-1">
+                        
+                        <div class="flex flex-col md:flex-row justify-between items-center mb-8 border-b pb-4 gap-4">
+                            <div>
+                                <h2 class="text-3xl font-serif font-bold text-school-base">Búsqueda de Alumnos</h2>
+                                <p class="text-gray-500 text-sm mt-1">Localiza al estudiante para gestionar sus reportes.</p>
+                            </div>
+                            
+                            <div class="flex gap-3">
+                                <button onclick="descargarExcelGlobal()" class="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-medium shadow transition-colors">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                                    Excel
+                                </button>
+                                <button onclick="descargarPDFGlobal()" class="flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg font-medium shadow transition-colors">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>
+                                    PDF
+                                </button>
+                            </div>
+
+                            <div id="loading-indicator" class="hidden">
+                                <div class="flex items-center gap-2 text-school-accent font-medium animate-pulse">
+                                    <svg class="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                                    Sincronizando...
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="bg-school-light/50 p-6 rounded-xl border border-blue-100 mb-8">
+                            <div class="grid grid-cols-1 md:grid-cols-12 gap-4">
+                                <div class="md:col-span-4">
+                                    <label class="block text-xs font-bold text-school-base mb-1 uppercase tracking-wide">Año</label>
+                                    <select id="filtro-anio" onchange="filtrarMatriculas()" class="input-academic w-full rounded-lg p-3 text-gray-700 cursor-pointer bg-white">
+                                        <option value="" selected>Todos</option>
+                                        <option value="2022">2022</option>
+                                        <option value="2023">2023</option>
+                                        <option value="2024">2024</option>
+                                        <option value="2025">2025</option>
+                                        <option value="2026">2026</option>
+                                        <option value="2027">2027</option>
+                                        <option value="2028">2028</option>
+                                        <option value="2029">2029</option>
+                                        <option value="2030">2030</option>
+                                    </select>
+                                </div>
+                                <div class="md:col-span-4">
+                                    <label class="block text-xs font-bold text-school-base mb-1 uppercase tracking-wide">Nivel</label>
+                                    <select id="filtro-nivel" onchange="actualizarGrados()" class="input-academic w-full rounded-lg p-3 text-gray-700 cursor-pointer bg-white">
+                                        <option value="">Todos</option>
+                                        <option value="Primaria">Primaria</option>
+                                        <option value="Secundaria">Secundaria</option>
+                                    </select>
+                                </div>
+                                <div class="md:col-span-4">
+                                    <label class="block text-xs font-bold text-school-base mb-1 uppercase tracking-wide">Grado</label>
+                                    <select id="filtro-grado" onchange="filtrarMatriculas()" class="input-academic w-full rounded-lg p-3 text-gray-700 cursor-pointer bg-white">
+                                        <option value="">Todos los Grados</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="rounded-xl border border-gray-200 shadow-sm overflow-visible">
+                            <div class="overflow-x-auto overflow-y-visible">
+                                <table class="min-w-full divide-y divide-gray-200">
+                                    <thead class="bg-gray-50">
+                                        <tr>
+                                            <th scope="col" class="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">DNI</th>
+                                            <th scope="col" class="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Apellidos</th>
+                                            <th scope="col" class="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Nombres</th>
+                                            <th scope="col" class="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Grado / Nivel</th>
+                                            <th scope="col" class="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Año</th>
+                                            <th scope="col" class="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Teléfono Apoderado</th>
+                                            <th scope="col" class="px-6 py-4 text-center text-xs font-bold text-gray-500 uppercase tracking-wider">Estado</th>
+                                            <th scope="col" class="px-6 py-4 text-center text-xs font-bold text-gray-500 uppercase tracking-wider">Acciones</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="resultados-tbody" class="bg-white divide-y divide-gray-200">
+                                        </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+</body>
+</html>
