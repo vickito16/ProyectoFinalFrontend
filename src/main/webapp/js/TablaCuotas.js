@@ -519,4 +519,4 @@ function cerrarModalGif() {
     const modal = document.getElementById('modalGif');
     modal.style.display = 'none';
     modalYesCallback = null;
-}  
+}
