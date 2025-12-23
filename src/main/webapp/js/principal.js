@@ -8,7 +8,7 @@ tailwind.config = {
     },
 };
 
-// --- CRIPTOGRAFÍA ---
+// --- CRIPTOGRAFÍA (Sin Cambios) ---
 const CryptoManager = {
     keyPair: null,
     sharedSecret: null,
@@ -67,35 +67,51 @@ window.onload = function() {
     }
 };
 
+// --- FUNCIÓN DE CONEXIÓN ACTUALIZADA (Stomp v7 + WS Puro) ---
 function conectarChat() {
     console.log("🔄 Conectando...");
-    const socket = new SockJS('http://localhost:8083/chat-websocket');
-    stompClient = Stomp.over(socket);
     
-    // Inicializar Crypto antes de conectar
-    CryptoManager.init().then(() => {
-        stompClient.connect({}, function(frame) {
-            console.log('✅ Conectado');
-            stompClient.send("/app/registrar", {}, miUsuario);
+    // Crear cliente Stomp v7
+    stompClient = new StompJs.Client({
+        brokerURL: 'ws://localhost:8083/chat-websocket', // Usa WS:// directo
+        reconnectDelay: 5000,
+        debug: (str) => console.log(str)
+    });
 
-            // 1. HANDSHAKE: Enviar mi clave
+    // Evento al conectar
+    stompClient.onConnect = (frame) => {
+        console.log('✅ Conectado');
+        actualizarEstadoUI(true);
+
+        // Inicializar criptografía tras conectar (o antes, pero aquí aseguramos flujo)
+        CryptoManager.init().then(() => {
+            
+            // 1. Registrar usuario (.publish en lugar de .send)
+            stompClient.publish({
+                destination: "/app/registrar", 
+                body: miUsuario
+            });
+
+            // 2. HANDSHAKE: Enviar mi clave pública
             CryptoManager.getPublicKeyJWK().then(jwk => {
                 const payload = {
                     loEnvia: miUsuario,
                     mensaje: "KEY|" + JSON.stringify(jwk),
                     targetUsername: usuarioDestino
                 };
-                stompClient.send("/app/private", {}, JSON.stringify(payload));
+                stompClient.publish({
+                    destination: "/app/private", 
+                    body: JSON.stringify(payload)
+                });
             });
 
-            // 2. Suscribirse
+            // 3. Suscribirse
             stompClient.subscribe('/user/topic/private', function(mensajeRecibido) {
                 const cuerpo = JSON.parse(mensajeRecibido.body);
-                const textoRaw = cuerpo.mensaje; // Ejemplo: "Soporte Escolar: KEY|{...}"
+                const textoRaw = cuerpo.mensaje; 
 
-                // LÓGICA CORREGIDA: Buscar el tag sin importar el prefijo del usuario
+                // Lógica de criptografía (Handshake vs Mensaje)
                 if (textoRaw.includes("KEY|")) {
-                    // Extraer JSON desde donde empieza KEY|
                     const jsonStr = textoRaw.substring(textoRaw.indexOf("KEY|") + 4);
                     const remoteJWK = JSON.parse(jsonStr);
                     CryptoManager.computeSecret(remoteJWK);
@@ -110,8 +126,21 @@ function conectarChat() {
                     notificarVisualmente();
                 }
             });
-        }, function(error) { console.error("❌ Error WS:", error); });
-    });
+        });
+    };
+
+    // Manejo de errores
+    stompClient.onWebSocketError = (error) => {
+        console.error("❌ Error WS:", error);
+        actualizarEstadoUI(false);
+    };
+    stompClient.onStompError = (frame) => {
+        console.error("❌ Error Stomp:", frame.headers['message']);
+        actualizarEstadoUI(false);
+    };
+
+    // Iniciar conexión
+    stompClient.activate();
 }
 
 function sendMessage(e) {
@@ -119,6 +148,7 @@ function sendMessage(e) {
     const input = document.getElementById('chat-input');
     const msg = input.value.trim();
 
+    // Verificación de conexión actualizada (v7 usa .connected)
     if (msg && stompClient && stompClient.connected) {
         // ENCRIPTAR
         const msgCifrado = CryptoManager.encrypt(msg);
@@ -128,13 +158,35 @@ function sendMessage(e) {
             mensaje: msgCifrado,
             targetUsername: usuarioDestino 
         };
-        stompClient.send("/app/private", {}, JSON.stringify(payload));
+
+        // ENVIAR (.publish en lugar de .send)
+        stompClient.publish({
+            destination: "/app/private",
+            body: JSON.stringify(payload)
+        });
+
         renderMensajeEnviado(msg);
         input.value = '';
         
         const container = document.getElementById('chat-messages');
         container.scrollTop = container.scrollHeight;
-    } else { alert("Sin conexión."); }
+    } else { 
+        alert("Sin conexión. Espere un momento..."); 
+    }
+}
+
+// --- FUNCIONES UI AUXILIARES ---
+
+function actualizarEstadoUI(conectado) {
+    const dot = document.getElementById('status-dot');
+    const text = document.getElementById('status-text');
+    if (conectado) {
+        dot.className = "absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-400 border-2 border-school-base rounded-full";
+        text.innerText = "En línea";
+    } else {
+        dot.className = "absolute bottom-0 right-0 w-2.5 h-2.5 bg-red-500 border-2 border-school-base rounded-full";
+        text.innerText = "Desconectado";
+    }
 }
 
 function irACambioClave() { window.location.href = "cambio.html"; }

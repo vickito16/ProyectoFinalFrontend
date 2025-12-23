@@ -4,10 +4,11 @@
     <meta charset="UTF-8">
     <title>Portal Directivo - Gestión Académica</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/sockjs-client/1.5.1/sockjs.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/stomp.js/2.3.3/stomp.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@stomp/stompjs@7.2.0/bundles/stomp.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Playfair+Display:wght@700&display=swap" rel="stylesheet">
 
     <script src="js/principalDirector.js" defer></script>
@@ -76,9 +77,9 @@
                 <div class="flex items-center gap-3">
                     <div class="relative">
                         <div class="w-8 h-8 bg-white/10 rounded-full flex items-center justify-center text-white">S</div>
-                        <div class="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-400 border-2 border-school-base rounded-full"></div>
+                        <div id="status-dot" class="absolute bottom-0 right-0 w-2.5 h-2.5 bg-red-500 border-2 border-school-base rounded-full"></div>
                     </div>
-                    <div><h4 class="text-white font-bold text-sm">Soporte TI</h4><p class="text-blue-200 text-xs">En línea</p></div>
+                    <div><h4 class="text-white font-bold text-sm">Soporte TI</h4><p id="status-text" class="text-blue-200 text-xs">Desconectado</p></div>
                 </div>
                 <button onclick="toggleChat()" class="text-white/80 hover:text-white hover:bg-white/10 rounded-full p-1 transition-colors">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>

@@ -1,7 +1,7 @@
 let stompClient = null;
 const MY_USERNAME = "soporte"; 
 
-// --- CRIPTOGRAFÍA SOPORTE ---
+// --- CRIPTOGRAFÍA SOPORTE (NO TOCAR - Lógica original) ---
 const CryptoSupport = {
     userSecrets: {}, // Mapa: 'usuario' => 'secreto_hex'
     async handleHandshake(remoteUser, remoteJWK) {
@@ -33,14 +33,27 @@ const CryptoSupport = {
     }
 };
 
+// --- CONEXIÓN WEB SOCKET (Refactorizado a Stomp v7 Puro) ---
 function connect() {
-    const socket = new SockJS('http://localhost:8083/chat-websocket');
-    stompClient = Stomp.over(socket);
-    
-    stompClient.connect({}, function (frame) {
-        console.log('✅ Soporte Conectado: ' + frame);
-        stompClient.send("/app/registrar", {}, MY_USERNAME);
+    // 1. Crear el cliente
+    stompClient = new StompJs.Client({
+        brokerURL: 'ws://localhost:8083/chat-websocket', // CAMBIO IMPORTANTE: ws:// directo
+        reconnectDelay: 5000,
+        debug: (str) => console.log(str)
+    });
 
+    // 2. Definir comportamiento al conectar
+    stompClient.onConnect = (frame) => {
+        console.log('✅ Soporte Conectado: ' + frame);
+        updateStatusUI(true);
+
+        // Registrar usuario
+        stompClient.publish({
+            destination: "/app/registrar",
+            body: MY_USERNAME
+        });
+
+        // Suscribirse a mensajes privados
         stompClient.subscribe('/user/topic/private', async function (messageOutput) {
             const cuerpo = JSON.parse(messageOutput.body);
             const textoCompleto = cuerpo.mensaje; 
@@ -48,40 +61,77 @@ function connect() {
             let remitente = cuerpo.loEnvia || "Anonimo";
             let contenidoReal = textoCompleto;
 
-            // CORRECCIÓN: Separar remitente del texto si el backend los concatena
+            // Separar remitente del texto si viene concatenado
             if (textoCompleto.includes(": ")) {
                 const partes = textoCompleto.split(": ");
                 remitente = partes[0]; 
-                // Unir el resto por si el mensaje contenía ": " también
                 contenidoReal = partes.slice(1).join(": ");
             }
 
+            // Lógica de procesamiento de mensajes (Handshake vs Encriptado vs Texto)
             if (contenidoReal.includes("KEY|")) {
                 // Handshake recibido
                 const jsonStr = contenidoReal.substring(contenidoReal.indexOf("KEY|") + 4);
                 const remoteJWK = JSON.parse(jsonStr);
                 const myPublicKey = await CryptoSupport.handleHandshake(remitente, remoteJWK);
                 
+                // Responder con mi clave pública
                 const payload = {
                     loEnvia: MY_USERNAME,
                     mensaje: "KEY|" + myPublicKey,
                     targetUsername: remitente
                 };
-                stompClient.send("/app/private", {}, JSON.stringify(payload));
+                stompClient.publish({
+                    destination: "/app/private",
+                    body: JSON.stringify(payload)
+                });
             } 
             else if (contenidoReal.includes("ENC|")) {
+                // Mensaje encriptado recibido
                 const textoPlano = CryptoSupport.decrypt(remitente, contenidoReal);
                 renderIncomingMessage(remitente, textoPlano);
             } 
             else {
+                // Mensaje normal
                 renderIncomingMessage(remitente, contenidoReal);
             }
         });
-    }, function(error) { console.error("❌ Error WS:", error); });
+    };
+
+    // 3. Manejo de errores
+    stompClient.onWebSocketError = (error) => {
+        console.error('❌ Error WS:', error);
+        updateStatusUI(false);
+    };
+    stompClient.onStompError = (frame) => {
+        console.error('❌ Error Stomp:', frame.headers['message']);
+        updateStatusUI(false);
+    };
+
+    // 4. Activar cliente
+    stompClient.activate();
+}
+
+// --- INTERFAZ DE USUARIO ---
+
+function updateStatusUI(isConnected) {
+    const indicator = document.getElementById("statusIndicator");
+    const text = document.getElementById("statusText");
+    const log = document.getElementById("messages-log");
+
+    if (isConnected) {
+        indicator.className = "w-3 h-3 bg-green-400 rounded-full animate-pulse";
+        text.innerText = `Conectado como: ${MY_USERNAME}`;
+        if(log.innerText.includes("Esperando conexión")) log.innerHTML = `<div class="text-center text-gray-400 text-sm italic mt-10">Esperando mensajes de estudiantes...</div>`;
+    } else {
+        indicator.className = "w-3 h-3 bg-red-500 rounded-full";
+        text.innerText = "Desconectado";
+    }
 }
 
 function renderIncomingMessage(remitente, mensaje) {
     const log = document.getElementById("messages-log");
+    // Limpiar mensaje de espera si existe
     if(log.children[0]?.classList.contains("text-center")) log.innerHTML = "";
 
     const cardHTML = `
@@ -111,12 +161,28 @@ function enviarRespuesta(e) {
 
     if (!target || !texto) return;
 
+    if (!stompClient || !stompClient.connected) {
+        alert("Error: No hay conexión con el servidor.");
+        return;
+    }
+
     // ENCRIPTAR
     const textoCifrado = CryptoSupport.encrypt(target, texto);
-    const payload = { loEnvia: MY_USERNAME, mensaje: textoCifrado, targetUsername: target };
+    
+    // Payload para el backend
+    const payload = { 
+        loEnvia: MY_USERNAME, 
+        mensaje: textoCifrado, 
+        targetUsername: target 
+    };
 
-    stompClient.send("/app/private", {}, JSON.stringify(payload));
+    // ENVÍO (Usando .publish)
+    stompClient.publish({
+        destination: "/app/private",
+        body: JSON.stringify(payload)
+    });
 
+    // Renderizar mi propia respuesta en el chat
     const log = document.getElementById("messages-log");
     const myMsgHTML = `
         <div class="bg-school-base/10 p-4 rounded-xl border border-school-base/20 self-end ml-10">
@@ -128,7 +194,10 @@ function enviarRespuesta(e) {
         </div>`;
     log.insertAdjacentHTML('beforeend', myMsgHTML);
     log.scrollTop = log.scrollHeight;
+    
+    // Limpiar input
     document.getElementById("replyMessage").value = "";
 }
 
+// Iniciar al cargar la página
 window.onload = connect;

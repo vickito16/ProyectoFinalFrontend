@@ -8,7 +8,7 @@ tailwind.config = {
     },
 };
 
-// --- CRIPTOGRAFÍA ---
+// --- CRIPTOGRAFÍA (Sin Cambios) ---
 const CryptoManager = {
     keyPair: null,
     sharedSecret: null,
@@ -56,23 +56,44 @@ window.onload = function() {
     }
 };
 
+// --- FUNCIÓN CONECTAR (ACTUALIZADA A STOMP V7 + WS) ---
 function conectarChat() {
     console.log("🔄 Conectando...");
-    const socket = new SockJS('http://localhost:8083/chat-websocket');
-    stompClient = Stomp.over(socket);
     
-    CryptoManager.init().then(() => {
-        stompClient.connect({}, function(frame) {
-            console.log('✅ Conectado');
-            stompClient.send("/app/registrar", {}, miUsuario);
+    // Crear cliente directo WebSocket (Sin SockJS)
+    stompClient = new StompJs.Client({
+        brokerURL: 'ws://localhost:8083/chat-websocket', // URL WebSocket nativa
+        reconnectDelay: 5000,
+        debug: (str) => console.log(str)
+    });
 
-            // HANDSHAKE
-            CryptoManager.getPublicKeyJWK().then(jwk => {
-                const payload = { loEnvia: miUsuario, mensaje: "KEY|" + JSON.stringify(jwk), targetUsername: usuarioDestino };
-                stompClient.send("/app/private", {}, JSON.stringify(payload));
+    stompClient.onConnect = (frame) => {
+        console.log('✅ Conectado');
+        actualizarEstadoUI(true);
+
+        // Inicializamos Crypto y luego nos registramos
+        CryptoManager.init().then(() => {
+            
+            // 1. Registrar usuario
+            stompClient.publish({
+                destination: "/app/registrar", 
+                body: miUsuario
             });
 
-            // RECEPCION
+            // 2. HANDSHAKE (Enviar mi clave pública)
+            CryptoManager.getPublicKeyJWK().then(jwk => {
+                const payload = { 
+                    loEnvia: miUsuario, 
+                    mensaje: "KEY|" + JSON.stringify(jwk), 
+                    targetUsername: usuarioDestino 
+                };
+                stompClient.publish({
+                    destination: "/app/private", 
+                    body: JSON.stringify(payload)
+                });
+            });
+
+            // 3. SUSCRIPCIÓN
             stompClient.subscribe('/user/topic/private', function(mensajeRecibido) {
                 const cuerpo = JSON.parse(mensajeRecibido.body);
                 const textoRaw = cuerpo.mensaje;
@@ -91,23 +112,66 @@ function conectarChat() {
                     notificarVisualmente();
                 }
             });
-        }, function(error) { console.error("❌ Error WS:", error); });
-    });
+        });
+    };
+
+    stompClient.onWebSocketError = (error) => {
+        console.error("❌ Error WS:", error);
+        actualizarEstadoUI(false);
+    };
+
+    stompClient.onStompError = (frame) => {
+        console.error("❌ Error Stomp:", frame.headers['message']);
+        actualizarEstadoUI(false);
+    };
+
+    stompClient.activate();
 }
 
 function sendMessage(e) {
     e.preventDefault();
     const input = document.getElementById('chat-input');
     const msg = input.value.trim();
+    
+    // Verificamos conexión con .connected (v7)
     if (msg && stompClient && stompClient.connected) {
+        // Encriptamos antes de enviar
         const msgCifrado = CryptoManager.encrypt(msg);
-        const payload = { loEnvia: miUsuario, mensaje: msgCifrado, targetUsername: usuarioDestino };
-        stompClient.send("/app/private", {}, JSON.stringify(payload));
+        
+        const payload = { 
+            loEnvia: miUsuario, 
+            mensaje: msgCifrado, 
+            targetUsername: usuarioDestino 
+        };
+        
+        // Usamos .publish en lugar de .send
+        stompClient.publish({
+            destination: "/app/private", 
+            body: JSON.stringify(payload)
+        });
+
         renderMensajeEnviado(msg);
         input.value = '';
         const container = document.getElementById('chat-messages');
         container.scrollTop = container.scrollHeight;
-    } else { alert("Sin conexión."); }
+    } else { 
+        alert("Sin conexión."); 
+    }
+}
+
+// --- UTILIDADES UI ---
+function actualizarEstadoUI(conectado) {
+    const dot = document.getElementById('status-dot');
+    const text = document.getElementById('status-text');
+    if(dot && text) {
+        if (conectado) {
+            dot.className = "absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-400 border-2 border-school-base rounded-full";
+            text.innerText = "En línea";
+        } else {
+            dot.className = "absolute bottom-0 right-0 w-2.5 h-2.5 bg-red-500 border-2 border-school-base rounded-full";
+            text.innerText = "Desconectado";
+        }
+    }
 }
 
 function irACambioClave() { window.location.href = "cambio.html"; }
