@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Portal Directivo - Gestión Académica</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/sockjs-client/1.5.1/sockjs.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/stomp.js/2.3.3/stomp.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Playfair+Display:wght@700&display=swap" rel="stylesheet">
+
+    <script src="js/principalDirector.js" defer></script>
+
+    <style>
+        .bg-campus { background-image: url('https://images.unsplash.com/photo-1541339907198-e08756dedf3f?q=80&w=2070&auto=format&fit=crop'); background-size: cover; background-position: center; background-attachment: fixed; }
+        .bg-overlay { background: linear-gradient(180deg, rgba(30, 58, 138, 0.95) 0%, rgba(241, 245, 249, 0.95) 40%); }
+        .card-service { transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); background: white; border: 1px solid rgba(226, 232, 240, 0.8); }
+        .card-service:hover { transform: translateY(-8px); box-shadow: 0 20px 25px -5px rgba(30, 58, 138, 0.15), 0 10px 10px -5px rgba(30, 58, 138, 0.1); border-color: #c2a45a; }
+        .chat-transition { transition: all 0.3s ease-in-out; }
+    </style>
+</head>
+<body class="bg-campus font-sans min-h-screen relative flex flex-col">
+    <div class="fixed inset-0 bg-overlay z-0"></div>
+    <header class="relative z-10 bg-white/90 backdrop-blur-md shadow-md border-b border-gray-100 sticky top-0">
+        <div class="container mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
+            <div class="flex items-center gap-3">
+                <div class="bg-school-base p-2 rounded-lg">
+                    <svg class="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12.75L11.25 15 15 9.75M21 12c0 1.268-.63 2.39-1.593 3.068a3.745 3.745 0 01-1.043 3.296 3.745 3.745 0 01-3.296 1.043A3.745 3.745 0 0112 21c-1.268 0-2.39-.63-3.068-1.593a3.746 3.746 0 01-3.296-1.043 3.745 3.745 0 01-1.043-3.296A3.745 3.745 0 013 12c0-1.268.63-2.39 1.593-3.068a3.745 3.745 0 011.043-3.296 3.746 3.746 0 013.296-1.043A3.746 3.746 0 0112 3c1.268 0 2.39.63 3.068 1.593a3.746 3.746 0 013.296 1.043 3.746 3.746 0 011.043 3.296A3.745 3.745 0 0121 12z" /></svg>
+                </div>
+                <span class="text-xl font-serif font-bold text-school-base tracking-wide">PORTAL DIRECTIVO</span>
+            </div>
+            <div class="flex items-center gap-4">
+                <p id="bienvenida" class="text-sm font-medium text-gray-600 hidden md:block">Bienvenido</p>
+                <button id="btn-cambiar-clave" onclick="irACambioClave()" class="bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-lg font-medium text-sm hover:bg-gray-50 hover:text-school-base transition-colors shadow-sm flex items-center gap-2"><span class="hidden sm:inline">Cambiar clave</span></button>
+                <button onclick="cerrarSesion()" class="bg-red-50 text-red-600 border border-red-100 px-4 py-2 rounded-lg font-medium text-sm hover:bg-red-600 hover:text-white transition-colors shadow-sm flex items-center gap-2"><span class="hidden sm:inline">Salir</span></button>
+            </div>
+        </div>
+    </header>
+
+    <main class="relative z-10 container mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-16 flex-1">
+        <div class="text-center mb-16">
+            <h2 class="text-4xl md:text-5xl font-serif font-bold text-school-base mb-4 tracking-tight drop-shadow-sm">Panel de Dirección</h2>
+            <p class="text-lg text-gray-600 max-w-2xl mx-auto">Administración institucional, supervisión de ingresos y control de autorizaciones académicas.</p>
+        </div>
+        <div class="flex flex-wrap justify-center gap-8 max-w-6xl mx-auto items-stretch">
+            <button onclick="navegarA('TablaMatriculados.html')" class="w-full md:w-96 p-8 rounded-2xl card-service flex flex-col justify-between items-start text-left group relative overflow-hidden">
+                <div class="absolute top-0 left-0 w-full h-1 bg-school-accent transform scale-x-0 group-hover:scale-x-100 transition-transform duration-300"></div>
+                <div class="w-full">
+                    <div class="bg-blue-50 p-4 rounded-xl mb-6 inline-block group-hover:bg-school-base transition-colors duration-300">
+                        <svg class="w-8 h-8 text-school-base group-hover:text-white transition-colors" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z" /></svg>
+                    </div>
+                    <h3 class="text-2xl font-bold text-gray-900 mt-2 font-serif group-hover:text-school-base transition-colors">Control de Matrículas</h3>
+                    <p class="mt-3 text-gray-500 text-sm leading-relaxed mb-8">Supervisión del proceso de matriculación, validación de vacantes y gestión de alumnado.</p>
+                </div>
+                <div class="text-sm font-semibold text-school-accent flex items-center group-hover:translate-x-1 transition-transform">Administrar <svg class="w-4 h-4 ml-1" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" /></svg></div>
+            </button>
+
+            <button onclick="navegarA('reporteFinanciero.html')" class="w-full md:w-96 p-8 rounded-2xl card-service flex flex-col justify-between items-start text-left group relative overflow-hidden">
+                <div class="absolute top-0 left-0 w-full h-1 bg-school-accent transform scale-x-0 group-hover:scale-x-100 transition-transform duration-300"></div>
+                <div class="w-full">
+                    <div class="bg-blue-50 p-4 rounded-xl mb-6 inline-block group-hover:bg-school-base transition-colors duration-300">
+                        <svg class="w-8 h-8 text-school-base group-hover:text-white transition-colors" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 3v11.25A2.25 2.25 0 006 16.5h2.25M3.75 3h-1.5m1.5 0h16.5m0 0h1.5m-1.5 0v11.25A2.25 2.25 0 0118 16.5h-2.25m-7.5 0h7.5m-7.5 0l-1 3m8.5-3l1 3m0 0l.5 1.5m-.5-1.5h-9.5m0 0l-.5 1.5M9 11.25v1.5M12 9v3.75m3-6v6" /></svg>
+                    </div>
+                    <h3 class="text-2xl font-bold text-gray-900 mt-2 font-serif group-hover:text-school-base transition-colors">Reportes Financieros</h3>
+                    <p class="mt-3 text-gray-500 text-sm leading-relaxed mb-8">Visualice el balance de ingresos por pensiones, matrículas y estado de morosidad.</p>
+                </div>
+                <div class="text-sm font-semibold text-school-accent flex items-center group-hover:translate-x-1 transition-transform">Ver Reportes <svg class="w-4 h-4 ml-1" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" /></svg></div>
+            </button>
+        </div>
+    </main>
+
+    <div id="chat-widget" class="fixed bottom-6 right-6 z-50 flex flex-col items-end">
+        <div id="chat-window" class="hidden mb-4 w-80 sm:w-96 bg-white rounded-2xl shadow-2xl border border-gray-200 overflow-hidden flex flex-col chat-transition" style="height: 450px;">
+            <div class="bg-school-base p-4 flex justify-between items-center shadow-sm">
+                <div class="flex items-center gap-3">
+                    <div class="relative">
+                        <div class="w-8 h-8 bg-white/10 rounded-full flex items-center justify-center text-white">S</div>
+                        <div class="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-400 border-2 border-school-base rounded-full"></div>
+                    </div>
+                    <div><h4 class="text-white font-bold text-sm">Soporte TI</h4><p class="text-blue-200 text-xs">En línea</p></div>
+                </div>
+                <button onclick="toggleChat()" class="text-white/80 hover:text-white hover:bg-white/10 rounded-full p-1 transition-colors">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
+            </div>
+            <div class="flex-1 bg-gray-50 p-4 overflow-y-auto space-y-4" id="chat-messages">
+                <div class="flex items-start gap-2.5">
+                    <div class="w-8 h-8 rounded-full bg-school-base flex items-center justify-center text-white text-xs font-bold">S</div>
+                    <div class="flex flex-col gap-1 w-full max-w-[280px]">
+                        <div class="flex flex-col p-3 border border-gray-100 bg-white rounded-2xl rounded-tl-none shadow-sm">
+                            <p class="text-sm text-gray-800">Bienvenido Director. ¿Requiere asistencia técnica?</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="p-3 bg-white border-t border-gray-100">
+                <form onsubmit="sendMessage(event)" class="flex gap-2 items-center bg-gray-50 rounded-full border border-gray-200 px-3 py-1.5 focus-within:border-school-base focus-within:ring-1 focus-within:ring-school-base transition-all">
+                    <input type="text" id="chat-input" placeholder="Escribe aquí..." class="flex-1 bg-transparent border-none text-gray-700 text-sm focus:ring-0 placeholder-gray-400">
+                    <button type="submit" class="p-2 text-school-base hover:bg-blue-50 rounded-full transition-colors">
+                        <svg class="w-5 h-5 transform rotate-90" fill="currentColor" viewBox="0 0 20 20"><path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z" /></svg>
+                    </button>
+                </form>
+            </div>
+        </div>
+        <button onclick="toggleChat()" class="bg-school-base hover:bg-school-dark text-white w-14 h-14 rounded-full shadow-lg flex items-center justify-center transition-all hover:scale-110 active:scale-95 z-50 border-2 border-white">
+            <svg id="chat-icon-open" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-7 h-7"><path stroke-linecap="round" stroke-linejoin="round" d="M8.625 12a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H8.25m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H12m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 01-2.555-.337A5.972 5.972 0 015.41 20.97a5.969 5.969 0 01-.474-.065 4.48 4.48 0 00.978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25z" /></svg>
+        </button>
+    </div>
+</body>
+</html>
