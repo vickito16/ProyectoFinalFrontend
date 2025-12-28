@@ -1,22 +1,76 @@
 let stompClient = null;
 const MY_USERNAME = "soporte"; 
 
-// --- CRIPTOGRAFÍA SOPORTE (NO TOCAR - Lógica original) ---
-const CryptoSupport = {
-    userSecrets: {}, // Mapa: 'usuario' => 'secreto_hex'
-    async handleHandshake(remoteUser, remoteJWK) {
-        const keyPair = await window.crypto.subtle.generateKey({ name: "ECDH", namedCurve: "P-256" }, true, ["deriveKey", "deriveBits"]);
-        const remoteKey = await window.crypto.subtle.importKey("jwk", remoteJWK, { name: "ECDH", namedCurve: "P-256" }, true, []);
-        const bits = await window.crypto.subtle.deriveBits({ name: "ECDH", public: remoteKey }, keyPair.privateKey, 256);
-        const buffer = new Uint8Array(bits);
-        const secret = Array.from(buffer).map(b => b.toString(16).padStart(2, '0')).join('');
-        
-        this.userSecrets[remoteUser] = secret;
-        console.log(`🔒 Secreto establecido con ${remoteUser}`);
+// --- CRIPTOGRAFÍA MANUAL (MATH.RANDOM + BIGINT) ---
+// Evita el bloqueo de window.crypto en HTTP
+const ManualCrypto = {
+    // Parámetros Diffie-Hellman (Grupo 5 RFC 3526 - simplificado para JS)
+    prime: 0xFFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD129024E088A67CC74020BBEA63B139B22514A08798E3404DDEF9519B3CD3A431B302B0A6DF25F14374FE1356D6D51C245E485B576625E7EC6F44C42E9A637ED6B0BFF5CB6F406B7EDEE386BFB5A899FA5AE9F24117C4B1FE649286651ECE45B3DC2007CB8A163BF0598DA48361C55D39A69163FA8FD24CF5F83655D23DCA3AD961C62F356208552BB9ED529077096966D670C354E4ABC9804F1746C08CA237327FFFFFFFFFFFFFFFFn,
+    generator: 2n,
 
-        const myPublicKeyJWK = await window.crypto.subtle.exportKey("jwk", keyPair.publicKey);
-        return JSON.stringify(myPublicKeyJWK);
+    userSecrets: {}, // Mapa: 'usuario' => 'secreto_hex'
+
+    // Función auxiliar: Exponenciación Modular (base^exp % mod)
+    modPow(base, exp, mod) {
+        let res = 1n;
+        base %= mod;
+        while (exp > 0n) {
+            if (exp % 2n === 1n) res = (res * base) % mod;
+            base = (base * base) % mod;
+            exp /= 2n;
+        }
+        return res;
     },
+
+    // Generar un número aleatorio grande inseguro (Suficiente para demos)
+    generatePrivateKey() {
+        let hex = "1"; // Asegurar positivo
+        for(let i=0; i<64; i++) {
+            hex += Math.floor(Math.random() * 16).toString(16);
+        }
+        return BigInt("0x" + hex);
+    },
+
+    // Realiza el handshake matemático
+    performServerHandshake(remoteUser, remotePublicKeyHex) {
+        try {
+            // 1. Generar mi Clave Privada (Random)
+            const myPrivateKey = this.generatePrivateKey();
+
+            // 2. Calcular mi Clave Pública: (G ^ Priv) % P
+            const myPublicKey = this.modPow(this.generator, myPrivateKey, this.prime);
+
+            // 3. Calcular Secreto Compartido: (Remoto ^ Priv) % P
+            const remoteKeyBigInt = BigInt("0x" + remotePublicKeyHex);
+            const sharedSecretBigInt = this.modPow(remoteKeyBigInt, myPrivateKey, this.prime);
+
+            // 4. Convertir a Hex para usar en AES
+            let secretHex = sharedSecretBigInt.toString(16);
+            // Asegurar longitud para AES (tomamos los primeros 64 caracteres/32 bytes)
+            if (secretHex.length < 64) secretHex = secretHex.padStart(64, '0');
+            const finalSecret = secretHex.substring(0, 64);
+
+            this.userSecrets[remoteUser] = finalSecret;
+            console.log(`🔐 [ManualCrypto] Secreto calculado con ${remoteUser}`);
+
+            // 5. Retornar mi pública en Hex
+            return myPublicKey.toString(16);
+
+        } catch (e) {
+            console.error("Error Matemático:", e);
+            return null;
+        }
+    },
+
+    encrypt(user, message) {
+        const secret = this.userSecrets[user];
+        if (!secret) return message;
+        // Usamos el Hex generado como clave directa para CryptoJS
+        // Nota: CryptoJS.AES usa la string como passphrase si no se parsea, 
+        // para máxima compatibilidad simple lo dejaremos como string passphrase.
+        return "ENC|" + CryptoJS.AES.encrypt(message, secret).toString();
+    },
+
     decrypt(user, ciphertext) {
         const secret = this.userSecrets[user];
         if (!secret || !ciphertext.includes("ENC|")) return ciphertext;
@@ -24,105 +78,86 @@ const CryptoSupport = {
         try {
             const bytes = CryptoJS.AES.decrypt(cleanCipher, secret);
             return bytes.toString(CryptoJS.enc.Utf8);
-        } catch(e) { return "[Error al descifrar]"; }
+        } catch(e) { return "[Error descifrado]"; }
     },
-    encrypt(user, message) {
-        const secret = this.userSecrets[user];
-        if (!secret) return message;
-        return "ENC|" + CryptoJS.AES.encrypt(message, secret).toString();
+
+    removeUserSession(user) {
+        if (this.userSecrets[user]) delete this.userSecrets[user];
     }
 };
 
-// --- CONEXIÓN WEB SOCKET (Refactorizado a Stomp v7 Puro) ---
+// --- CONEXIÓN ---
 function connect() {
-    // 1. Crear el cliente
+    // AQUÍ: Asegúrate de poner la IP de tu servidor backend (ej. 192.168.0.110)
+    // Si estás en la misma PC usa localhost, si es desde celular usa la IP.
     stompClient = new StompJs.Client({
-        brokerURL: 'ws://localhost:8083/chat-websocket', // CAMBIO IMPORTANTE: ws:// directo
+        brokerURL: 'ws://localhost:8083/chat-websocket', // <--- IP DE TU BACKEND
         reconnectDelay: 5000,
         debug: (str) => console.log(str)
     });
 
-    // 2. Definir comportamiento al conectar
     stompClient.onConnect = (frame) => {
-        console.log('✅ Soporte Conectado: ' + frame);
+        console.log('✅ Soporte Conectado');
         updateStatusUI(true);
+        stompClient.publish({ destination: "/app/registrar", body: MY_USERNAME });
 
-        // Registrar usuario
-        stompClient.publish({
-            destination: "/app/registrar",
-            body: MY_USERNAME
-        });
-
-        // Suscribirse a mensajes privados
-        stompClient.subscribe('/user/topic/private', async function (messageOutput) {
+        stompClient.subscribe('/user/topic/private', function (messageOutput) {
             const cuerpo = JSON.parse(messageOutput.body);
-            const textoCompleto = cuerpo.mensaje; 
+            const textoRaw = cuerpo.contenido || cuerpo.mensaje;
             
             let remitente = cuerpo.loEnvia || "Anonimo";
-            let contenidoReal = textoCompleto;
+            let contenido = textoRaw;
 
-            // Separar remitente del texto si viene concatenado
-            if (textoCompleto.includes(": ")) {
-                const partes = textoCompleto.split(": ");
-                remitente = partes[0]; 
-                contenidoReal = partes.slice(1).join(": ");
+            if (textoRaw.includes(": ")) {
+                const parts = textoRaw.split(": ");
+                remitente = parts[0];
+                contenido = parts.slice(1).join(": ");
             }
 
-            // Lógica de procesamiento de mensajes (Handshake vs Encriptado vs Texto)
-            if (contenidoReal.includes("KEY|")) {
-                // Handshake recibido
-                const jsonStr = contenidoReal.substring(contenidoReal.indexOf("KEY|") + 4);
-                const remoteJWK = JSON.parse(jsonStr);
-                const myPublicKey = await CryptoSupport.handleHandshake(remitente, remoteJWK);
+            // CASO 1: HANDSHAKE
+            if (contenido.includes("HANDSHAKE_INIT|")) {
+                const remoteKeyHex = contenido.substring(contenido.indexOf("|") + 1);
                 
-                // Responder con mi clave pública
-                const payload = {
-                    loEnvia: MY_USERNAME,
-                    mensaje: "KEY|" + myPublicKey,
-                    targetUsername: remitente
-                };
-                stompClient.publish({
-                    destination: "/app/private",
-                    body: JSON.stringify(payload)
-                });
-            } 
-            else if (contenidoReal.includes("ENC|")) {
-                // Mensaje encriptado recibido
-                const textoPlano = CryptoSupport.decrypt(remitente, contenidoReal);
+                // Usamos la nueva lógica manual
+                const myPublicKeyHex = ManualCrypto.performServerHandshake(remitente, remoteKeyHex);
+
+                if (myPublicKeyHex) {
+                    const responsePayload = {
+                        loEnvia: MY_USERNAME,
+                        mensaje: "HANDSHAKE_ACK|" + myPublicKeyHex,
+                        targetUsername: remitente
+                    };
+                    stompClient.publish({ destination: "/app/private", body: JSON.stringify(responsePayload) });
+                }
+            }
+            // CASO 2: FIN SESIÓN
+            else if (contenido.includes("END_SESSION")) {
+                ManualCrypto.removeUserSession(remitente);
+                renderIncomingMessage(remitente, "🔴 Usuario desconectado.");
+            }
+            // CASO 3: MENSAJE
+            else if (contenido.includes("ENC|")) {
+                const textoPlano = ManualCrypto.decrypt(remitente, contenido);
                 renderIncomingMessage(remitente, textoPlano);
-            } 
-            else {
-                // Mensaje normal
-                renderIncomingMessage(remitente, contenidoReal);
+            } else {
+                renderIncomingMessage(remitente, contenido);
             }
         });
     };
 
-    // 3. Manejo de errores
-    stompClient.onWebSocketError = (error) => {
-        console.error('❌ Error WS:', error);
-        updateStatusUI(false);
-    };
-    stompClient.onStompError = (frame) => {
-        console.error('❌ Error Stomp:', frame.headers['message']);
-        updateStatusUI(false);
-    };
-
-    // 4. Activar cliente
+    stompClient.onWebSocketError = (e) => { console.error(e); updateStatusUI(false); };
     stompClient.activate();
 }
 
-// --- INTERFAZ DE USUARIO ---
-
+// ... (Resto de funciones UI: updateStatusUI, renderIncomingMessage, etc. IGUAL QUE ANTES) ...
+// Copia tus funciones UI existentes aquí abajo (renderIncomingMessage, enviarRespuesta, etc)
+// Asegúrate de que en enviarRespuesta uses ManualCrypto.encrypt
 function updateStatusUI(isConnected) {
     const indicator = document.getElementById("statusIndicator");
     const text = document.getElementById("statusText");
-    const log = document.getElementById("messages-log");
-
     if (isConnected) {
         indicator.className = "w-3 h-3 bg-green-400 rounded-full animate-pulse";
-        text.innerText = `Conectado como: ${MY_USERNAME}`;
-        if(log.innerText.includes("Esperando conexión")) log.innerHTML = `<div class="text-center text-gray-400 text-sm italic mt-10">Esperando mensajes de estudiantes...</div>`;
+        text.innerText = `Online: ${MY_USERNAME}`;
     } else {
         indicator.className = "w-3 h-3 bg-red-500 rounded-full";
         text.innerText = "Desconectado";
@@ -131,21 +166,24 @@ function updateStatusUI(isConnected) {
 
 function renderIncomingMessage(remitente, mensaje) {
     const log = document.getElementById("messages-log");
-    // Limpiar mensaje de espera si existe
     if(log.children[0]?.classList.contains("text-center")) log.innerHTML = "";
 
-    const cardHTML = `
-        <div class="bg-white p-4 rounded-xl shadow border-l-4 border-blue-500 animate-[fadeIn_0.5s_ease-out]">
+    const isSystem = mensaje.includes("desconectado");
+    const lockIcon = isSystem ? "" : "🔒";
+    const msgColor = isSystem ? "text-red-500 italic" : "text-gray-600";
+
+    const html = `
+        <div class="bg-white p-4 rounded-xl shadow border-l-4 ${isSystem ? 'border-red-400' : 'border-blue-500'} animate-[fadeIn_0.3s_ease-out]">
             <div class="flex justify-between items-start">
                 <div>
-                    <h4 class="font-bold text-gray-800 text-lg">${remitente} <span class="text-xs text-green-600 font-normal border border-green-200 bg-green-50 px-1 rounded">🔒 Seguro</span></h4>
-                    <p class="text-gray-600 mt-1">${mensaje}</p>
-                    <span class="text-xs text-gray-400 mt-2 block">${new Date().toLocaleTimeString()}</span>
+                    <h4 class="font-bold text-gray-800 text-sm">${remitente} ${lockIcon}</h4>
+                    <p class="${msgColor} mt-1">${mensaje}</p>
+                    <span class="text-xs text-gray-400 mt-1 block">${new Date().toLocaleTimeString()}</span>
                 </div>
-                <button onclick="prepararRespuesta('${remitente}')" class="bg-blue-50 text-blue-600 hover:bg-blue-100 px-3 py-1 rounded-lg text-sm font-medium transition-colors border border-blue-200">Responder</button>
+                ${!isSystem ? `<button onclick="prepararRespuesta('${remitente}')" class="bg-blue-50 text-blue-600 px-3 py-1 rounded text-xs hover:bg-blue-100">Responder</button>` : ''}
             </div>
         </div>`;
-    log.insertAdjacentHTML('beforeend', cardHTML);
+    log.insertAdjacentHTML('beforeend', html);
     log.scrollTop = log.scrollHeight;
 }
 
@@ -159,45 +197,30 @@ function enviarRespuesta(e) {
     const target = document.getElementById("targetUser").value.trim();
     const texto = document.getElementById("replyMessage").value.trim();
 
-    if (!target || !texto) return;
+    if (!target || !texto || !stompClient) return;
 
-    if (!stompClient || !stompClient.connected) {
-        alert("Error: No hay conexión con el servidor.");
-        return;
-    }
+    // Encriptar respuesta CON MANUALCRYPTO
+    const cifrado = ManualCrypto.encrypt(target, texto);
 
-    // ENCRIPTAR
-    const textoCifrado = CryptoSupport.encrypt(target, texto);
-    
-    // Payload para el backend
-    const payload = { 
-        loEnvia: MY_USERNAME, 
-        mensaje: textoCifrado, 
-        targetUsername: target 
+    const payload = {
+        loEnvia: MY_USERNAME,
+        mensaje: cifrado,
+        targetUsername: target
     };
 
-    // ENVÍO (Usando .publish)
-    stompClient.publish({
-        destination: "/app/private",
-        body: JSON.stringify(payload)
-    });
+    stompClient.publish({ destination: "/app/private", body: JSON.stringify(payload) });
 
-    // Renderizar mi propia respuesta en el chat
     const log = document.getElementById("messages-log");
-    const myMsgHTML = `
-        <div class="bg-school-base/10 p-4 rounded-xl border border-school-base/20 self-end ml-10">
-            <div class="flex flex-col items-end">
-                <h4 class="font-bold text-school-base text-sm">Tú respondiste a ${target} (🔒):</h4>
-                <p class="text-gray-800 mt-1 text-right">${texto}</p>
-                <span class="text-xs text-gray-400 mt-1">${new Date().toLocaleTimeString()}</span>
+    log.insertAdjacentHTML('beforeend', `
+        <div class="bg-blue-50 p-3 rounded-xl self-end border border-blue-100 ml-10 mb-2">
+            <div class="text-right">
+                <span class="text-xs font-bold text-blue-800">Para: ${target} 🔒</span>
+                <p class="text-sm text-gray-700">${texto}</p>
             </div>
-        </div>`;
-    log.insertAdjacentHTML('beforeend', myMsgHTML);
+        </div>
+    `);
     log.scrollTop = log.scrollHeight;
-    
-    // Limpiar input
     document.getElementById("replyMessage").value = "";
 }
 
-// Iniciar al cargar la página
 window.onload = connect;
