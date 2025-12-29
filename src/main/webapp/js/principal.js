@@ -91,7 +91,7 @@ window.onload = function() {
     if (!miUsuario) { window.location.href = "index.html"; } 
     else {
         // OJO: Cambia esto si es Director
-        document.getElementById("bienvenida").innerHTML = `Hola, <span class="font-bold text-school-base">${miUsuario}</span>`;
+        document.getElementById("bienvenida").innerHTML = `Secretario(a), <span class="font-bold text-school-base">${miUsuario}</span>`;
         if (provider === "google" || provider === "facebook") {
             const btn = document.getElementById("btn-cambiar-clave");
             if(btn) btn.classList.add("hidden");
