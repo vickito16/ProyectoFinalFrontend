@@ -33,13 +33,10 @@ function cifrarDES(texto) {
 
 function descifrarDES(textoCifrado) {
     if (!textoCifrado) return "";
-    
     try {
         const bytes  = CryptoJS.DES.decrypt(textoCifrado, CLAVE_SECRETA_DES);
         const textoOriginal = bytes.toString(CryptoJS.enc.Utf8);
-        
         if (!textoOriginal) return textoCifrado; 
-        
         return textoOriginal;
     } catch (e) {
         console.error("Error al descifrar:", e);
@@ -95,10 +92,29 @@ function irAInicio() {
     window.location.href = 'principal.html';
 }
 
+// ---------------------------------------------------------
+// 🔥 SOLUCIÓN MANUAL: Limpieza explícita campo por campo
+// ---------------------------------------------------------
+function limpiarFormularioRegistro() {
+    // Obtenemos cada elemento por su ID y lo vaciamos
+    if(document.getElementById('reg-nombreAlumno')) document.getElementById('reg-nombreAlumno').value = "";
+    if(document.getElementById('reg-apePaterAlumno')) document.getElementById('reg-apePaterAlumno').value = "";
+    if(document.getElementById('reg-apeMaterAlumno')) document.getElementById('reg-apeMaterAlumno').value = "";
+    if(document.getElementById('reg-dniAlumno')) document.getElementById('reg-dniAlumno').value = "";
+    if(document.getElementById('reg-fechaNacimiento')) document.getElementById('reg-fechaNacimiento').value = "";
+    if(document.getElementById('reg-telefonoApoderado')) document.getElementById('reg-telefonoApoderado').value = "";
+    if(document.getElementById('reg-direccionAlumno')) document.getElementById('reg-direccionAlumno').value = "";
+}
+
 function abrirModal(idModal, alumno = null) {
     alumnoSeleccionado = alumno;
     const modal = document.getElementById(idModal);
     modal.classList.remove('hidden');
+    
+    // Si abrimos el modal de agregar, forzamos la limpieza manual
+    if (idModal === 'agregar-modal') {
+        limpiarFormularioRegistro(); 
+    }
     
     if (idModal === 'editar-modal' && alumno) {
         document.getElementById('edit-idAlumno').value = alumno.idAlumno || ''; 
@@ -149,6 +165,10 @@ async function registrarAlumno(event) {
 
         if (response.ok && result.resultado === 'ok') {
             mostrarAlerta(result.mensaje, 'success');
+            
+            // Limpieza manual tras éxito
+            limpiarFormularioRegistro(); 
+            
             cerrarModal('agregar-modal');
             cargarTablaAlumnos(); 
         } else {
